@@ -25,8 +25,8 @@
   "defaultLocale": "ru",
   "salon": {
     "name": {
-      "ru": "Студия красоты Марины Григ",
-      "en": "Marina Grig Beauty Studio",
+      "ru": "Марина Григ",
+      "en": "Marina Grig",
       "hy": "",
       "uz": "",
       "tg": ""
