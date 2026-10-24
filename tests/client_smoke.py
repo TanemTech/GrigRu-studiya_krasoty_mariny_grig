@@ -94,7 +94,17 @@ def check(browser, width, height, mobile, language):
         'Could not load "util".',
         'maps.googleapis.com/maps/api/mapsjs/gen_204?csp_test=true due to access control checks.',
     )
-    app_errors = [error for error in errors if not any(token in error for token in google_maps_frame_noise)]
+    # WebKit may surface this exact third-party Maps exception on the local
+    # HTTP test server. Never suppress other frame or application errors.
+    yandex_local_frame_noise = (
+        f'/yandex.ru" from accessing a frame with origin "{HOST}".  '
+        'The frame requesting access has a protocol of "https", '
+        'the frame being accessed has a protocol of "http". Protocols must match.'
+    )
+    app_errors = [error for error in errors
+                  if not any(token in error for token in google_maps_frame_noise)
+                  and not (HOST.startswith("http://127.0.0.1:")
+                           and error.strip() == yandex_local_frame_noise)]
     assert not app_errors, f"JavaScript errors: {app_errors}"
     assert not failed_assets, f"Missing site assets: {failed_assets}"
     context.close()
