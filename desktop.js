@@ -47,7 +47,10 @@
     about:russian(master.about),
     photo:typeof master.photo==='string'?master.photo:(master.photo?.src||''),
     cats:[...(master.categories||[])],
-    work:(master.work||[]).map(item=>typeof item==='string'?item:item.src)
+    work:(master.work||[]).map(item=>typeof item==='string'?item:item.src),
+    serviceIds:[...(master.serviceIds||[])],
+    reviewCount:Number(master.reviewCount)||0,
+    bookingUrl:master.bookingUrl||''
   }));
   const DISPLAY_TEAM_MASTERS=TEAM_MASTERS.length?TEAM_MASTERS:Array.from({length:4},(_,index)=>({
     id:'placeholder-'+(index+1),name:'Мастер',role:'',about:'',photo:'',cats:[],work:[],placeholder:true
@@ -1152,16 +1155,11 @@
   let activeDesktopMasterTab='Профиль';
 
   function desktopMasterServices(master){
-    return (master.cats||[]).flatMap(cat=>(SERVICE_DATA[cat]||[]).map(item=>({cat,item})));
+    const ids=new Set(master.serviceIds||[]);
+    return SITE.services.filter(service=>ids.has(service.id)).map(service=>({cat:service.category,item:[russian(service.title),russian(service.price)],bookingUrl:service.bookingUrl||''}));
   }
   function desktopMasterAbout(master){
-    const map={
-      nails:'Маникюр и педикюр. Аккуратная работа и внимание к деталям.',
-      hair:'Стрижки, окрашивание, укладки и уход за волосами.',
-      cosmetology:'Косметология и профессиональный уход за кожей.',
-      brows:'Брови и ресницы — форма, ламинирование и уход.'
-    };
-    return map[master.id]||'Описание специалиста.';
+    return master.about||'Информация о мастере пока не опубликована в Sonline.';
   }
   function paintDesktopMasterTab(){
     const target=masterPageContent.querySelector('.std-master-tab-content');
@@ -1169,22 +1167,34 @@
     const master=activeDesktopMaster;
     const items=desktopMasterServices(master);
     const works=master.work||[];
+    const en=activeDesktopServiceLang()==='en';
     if(activeDesktopMasterTab==='Профиль'){
-      target.innerHTML='<h3>О мастере</h3><p class="std-master-about-copy">'+desktopMasterAbout(master)+'</p>';
+      target.innerHTML='<h3>'+(en?'About the specialist':'О мастере')+'</h3><p class="std-master-about-copy">'+(en?'Current services and booking are available on Sonline.':desktopMasterAbout(master))+'</p>';
     }else if(activeDesktopMasterTab==='Услуги'){
-      target.innerHTML='<section class="std-master-page-block"><h3>Услуги</h3>'+(items.length?items.map(({cat,item})=>'<div class="std-master-page-service"><strong>'+item[0]+'</strong><span>'+cat+'</span></div>').join(''):'<p class="std-master-page-empty">Пока нет данных об услугах.</p>')+'</section>';
+      const shown=items.slice(0,15);
+      target.innerHTML='<section class="std-master-page-block"><h3>'+(en?'Services':'Услуги')+'</h3>'+(shown.length?shown.map(({cat,item,bookingUrl})=>'<button class="std-master-page-service" type="button" data-master-service-url="'+bookingUrl+'"><strong>'+(en?englishServiceTitle(bookingUrl,item[0]):item[0])+'</strong><span>'+(en?'Book →':'Запись →')+'</span></button>').join(''):'<p class="std-master-page-empty">'+(en?'No service data available yet.':'Пока нет данных об услугах.')+'</p>')+(items.length>shown.length?'<p class="std-master-page-empty">'+(en?'More services are available on Sonline.':'Остальные услуги доступны при записи в Sonline.')+'</p>':'')+'</section>';
+      target.querySelectorAll('[data-master-service-url]').forEach(button=>button.onclick=()=>{
+        const url=button.dataset.masterServiceUrl;
+        if(url)window.open(url,'_blank','noopener,noreferrer');else {closeDesktopMaster();openDesktopBooking()}
+      });
     }else if(activeDesktopMasterTab==='Портфолио'){
-      target.innerHTML='<section class="std-master-page-block"><h3>Портфолио</h3>'+(works.length?'<div class="std-master-page-works">'+works.map((src,i)=>'<button class="std-master-page-work" type="button" data-master-work="'+i+'"><img src="'+src+'" alt="'+master.name+'" loading="lazy"></button>').join('')+'</div>':'<p class="std-master-page-empty">Пока нет фото.</p>')+'</section>';
+      target.innerHTML='<section class="std-master-page-block"><h3>'+(en?'Portfolio':'Портфолио')+'</h3>'+(works.length?'<div class="std-master-page-works">'+works.map((src,i)=>'<button class="std-master-page-work" type="button" data-master-work="'+i+'"><img src="'+src+'" alt="'+master.name+'" loading="lazy"></button>').join('')+'</div>':'<p class="std-master-page-empty">'+(en?'No portfolio photos yet.':'Пока нет фото.')+'</p>')+'</section>';
       target.querySelectorAll('[data-master-work]').forEach(btn=>btn.onclick=()=>{
         const list=works.map(src=>({src,alt:master.name}));
         openDesktopViewer(list,Number(btn.dataset.masterWork)||0,'gallery');
       });
     }else{
-      target.innerHTML='<section class="std-master-page-block"><h3>Отзывы</h3><p class="std-master-page-empty">Пока нет отзывов.</p></section>';
+      target.innerHTML='<section class="std-master-page-block"><h3>'+(en?'Reviews':'Отзывы')+'</h3><p class="std-master-page-empty">'+(master.reviewCount?(en?`${master.reviewCount} reviews on Sonline.`:`${master.reviewCount} отзывов в Sonline.`):(en?'Reviews can be viewed on Sonline.':'Отзывы можно посмотреть в Sonline.'))+'</p>'+(master.bookingUrl?'<p class="std-master-page-empty"><a href="'+master.bookingUrl+'" target="_blank" rel="noopener noreferrer">'+(en?'View profile on Sonline →':'Открыть профиль в Sonline →')+'</a></p>':'')+'</section>';
     }
   }
+  function englishServiceTitle(url,fallback){
+    const id=String(url||'').match(/[?&]services=(\d+)/)?.[1];
+    return (id&&russian(SITE.services.find(service=>service.id==='sonline-'+id)?.title?.en))||fallback;
+  }
   function paintDesktopMaster(master){
-    masterPageContent.innerHTML='<div class="std-master-profile"><div class="std-master-avatar">'+TEAM_AVATAR+'</div><h2>'+master.name+'</h2><p>'+master.role+'</p><div class="std-master-profile-rating"><b>—</b> · Рейтинг не указан</div><div class="std-master-profile-cats">'+(master.cats||[]).map(cat=>'<span>'+cat+'</span>').join('')+'</div></div><div class="std-master-tabs">'+['Профиль','Услуги','Портфолио','Отзывы'].map(tab=>'<button type="button" data-master-tab="'+tab+'" class="'+(tab===activeDesktopMasterTab?'active':'')+'">'+tab+'</button>').join('')+'</div><div class="std-master-tab-content"></div>';
+    const en=activeDesktopServiceLang()==='en';
+    const count=master.reviewCount?(en?master.reviewCount+' reviews on Sonline':master.reviewCount+' отзывов в Sonline'):(en?'Reviews on Sonline':'Отзывы в Sonline');
+    masterPageContent.innerHTML='<div class="std-master-profile"><div class="std-master-avatar">'+teamAvatar(master)+'</div><h2>'+master.name+'</h2><p>'+master.role+'</p><div class="std-master-profile-rating">'+count+'</div><div class="std-master-profile-cats">'+(master.cats||[]).map(cat=>'<span>'+cat+'</span>').join('')+'</div></div><div class="std-master-tabs">'+['Профиль','Услуги','Портфолио','Отзывы'].map(tab=>'<button type="button" data-master-tab="'+tab+'" class="'+(tab===activeDesktopMasterTab?'active':'')+'">'+(en?({Профиль:'Profile',Услуги:'Services',Портфолио:'Portfolio',Отзывы:'Reviews'})[tab]:tab)+'</button>').join('')+'</div><div class="std-master-tab-content"></div>';
     masterPageContent.querySelectorAll('[data-master-tab]').forEach(btn=>btn.onclick=()=>{
       activeDesktopMasterTab=btn.dataset.masterTab;
       masterPageContent.querySelectorAll('[data-master-tab]').forEach(x=>x.classList.toggle('active',x===btn));
@@ -1211,7 +1221,11 @@
   }));
   masterPageClose.addEventListener('click',closeDesktopMaster);
   masterOverlay.addEventListener('click',e=>{if(e.target===masterOverlay)closeDesktopMaster()});
-  masterPageBook.addEventListener('click',()=>{closeDesktopMaster();openDesktopBooking()});
+  masterPageBook.addEventListener('click',()=>{
+    const url=activeDesktopMaster?.bookingUrl;
+    if(url){window.open(url,'_blank','noopener,noreferrer');return}
+    closeDesktopMaster();openDesktopBooking();
+  });
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&masterOverlay.classList.contains('open'))closeDesktopMaster()});
 
   const DESKTOP_LANG_STORAGE='salon-template-language';

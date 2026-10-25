@@ -71,11 +71,13 @@ const REVIEWS_URL=SITE.contacts.reviewsUrl||'#tn13Reviews';
 const PHONE=SITE.contacts.phone||'';
 const MESSENGER_URL=SITE.contacts.messengerUrl||'#tn13Visit';
 const SERVICES=SITE.services.map(service=>({
+  id:service.id,
   cat:service.category,
   title:russian(service.title),
   price:russian(service.price),
   desc:russian(service.duration),
   details:russian(service.description),
+  bookingUrl:service.bookingUrl||'',
   ...(service.mobileDemoId?{demoId:service.mobileDemoId}:{})
 }));
 const GALLERY=Object.fromEntries(
@@ -91,7 +93,10 @@ const MASTERS=SITE.team.map(master=>({
   photo:typeof master.photo==='string'?master.photo:(master.photo?.src||''),
   cats:[...(master.categories||[])],
   work:(master.work||[]).map(item=>typeof item==='string'?item:item.src),
-  reviewNames:(master.reviewIds||[]).map(id=>russian(SITE.reviews.find(review=>review.id===id)?.author)).filter(Boolean)
+  reviewNames:(master.reviewIds||[]).map(id=>russian(SITE.reviews.find(review=>review.id===id)?.author)).filter(Boolean),
+  serviceIds:[...(master.serviceIds||[])],
+  reviewCount:Number(master.reviewCount)||0,
+  bookingUrl:master.bookingUrl||''
 }));
 const DISPLAY_MASTERS=MASTERS.length?MASTERS:Array.from({length:4},(_,index)=>({
   id:'placeholder-'+(index+1),name:'Мастер',role:'',about:'',photo:'',cats:[],work:[],reviewNames:[],placeholder:true
@@ -138,10 +143,28 @@ const gallery=$('#tn13Gallery');let galleryCat='Салон';
 function renderGallery(){
  const items=GALLERY[galleryCat]||[];
  const categories=Object.keys(GALLERY);
- gallery.innerHTML=`<div class="tn22-gallery"><div class="tn22-gallery-top"><button class="tn22-gallery-back" type="button">←</button><div class="tn22-gallery-title"><strong>${["en","hy"].includes(document.body.dataset.brLang)?"Gallery":"Галерея"}</strong><span>SALON NAME</span></div><div></div></div><div class="tn22-gallery-tabs-wrap"><div class="tn22-gallery-tabs">${categories.map(c=>`<button class="tn22-gallery-tab${c===galleryCat?' active':''}" type="button" data-gcat="${c}">${c}</button>`).join('')}</div></div><div class="tn22-gallery-grid${galleryCat==='Салон'?' salon':''}">${items.length?items.map((x,i)=>`<button class="tn22-gallery-tile" type="button" data-gi="${i}"><img loading="lazy" decoding="async" src="${x.src}" alt="${x.alt}"></button>`).join(''):'<div class="tn23-gallery-empty">Фотографии пока не добавлены</div>'}</div></div>`;
- gallery.querySelector('.tn22-gallery-back').onclick=closeGallery;
- gallery.querySelectorAll('[data-gcat]').forEach(b=>b.onclick=()=>{galleryCat=b.dataset.gcat;renderGallery()});
- gallery.querySelectorAll('[data-gi]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();openViewer(items,+b.dataset.gi,'gallery')});
+ // Keep the category rail mounted between selections so its horizontal scroll
+ // is not reset on long names such as "Перманентный макияж".
+ if(!gallery.querySelector('.tn22-gallery-tabs')){
+  gallery.innerHTML=`<div class="tn22-gallery"><div class="tn22-gallery-top"><button class="tn22-gallery-back" type="button">←</button><div class="tn22-gallery-title"><strong>${["en","hy"].includes(document.body.dataset.brLang)?"Gallery":"Галерея"}</strong><span>SALON NAME</span></div><div></div></div><div class="tn22-gallery-tabs-wrap"><div class="tn22-gallery-tabs">${categories.map(c=>`<button class="tn22-gallery-tab" type="button" data-gcat="${c}">${c}</button>`).join('')}</div></div><div class="tn22-gallery-grid"></div></div>`;
+  gallery.querySelector('.tn22-gallery-back').onclick=closeGallery;
+  gallery.querySelector('.tn22-gallery-tabs').onclick=e=>{
+   const tab=e.target.closest('[data-gcat]');
+   if(!tab)return;
+   galleryCat=tab.dataset.gcat;
+   renderGallery();
+  };
+  gallery.querySelector('.tn22-gallery-grid').onclick=e=>{
+   const tile=e.target.closest('[data-gi]');
+   if(!tile)return;
+   e.preventDefault();e.stopPropagation();
+   openViewer(GALLERY[galleryCat]||[],Number(tile.dataset.gi)||0,'gallery');
+  };
+ }
+ gallery.querySelectorAll('[data-gcat]').forEach(tab=>tab.classList.toggle('active',tab.dataset.gcat===galleryCat));
+ const grid=gallery.querySelector('.tn22-gallery-grid');
+ grid.classList.toggle('salon',galleryCat==='Салон');
+ grid.innerHTML=items.length?items.map((x,i)=>`<button class="tn22-gallery-tile" type="button" data-gi="${i}"><img loading="lazy" decoding="async" src="${x.src}" alt="${x.alt}"></button>`).join(''):'<div class="tn23-gallery-empty">Фотографии пока не добавлены</div>';
 }
 let galleryCloseTimer=0;
 function setGalleryOrigin(origin){
@@ -357,10 +380,31 @@ const team=$('#tn13Team');team.hidden=false;team.innerHTML=`<div class="tn22-tea
 const teamSheet=document.createElement('div');teamSheet.className='tn22-team-sheet';root.appendChild(teamSheet);
 
 // MASTER PAGE
-const masterPage=document.createElement('div');masterPage.className='tn22-master-page';masterPage.innerHTML=`<div class="tn22-master-shell"><div class="tn22-master-top"><button class="tn22-back" type="button">←</button><div class="tn22-master-brand">SALON NAME</div><span class="tn42-master-spacer" aria-hidden="true"></span></div><div class="tn22-master-body"></div></div><button class="tn22-master-book" type="button">Записаться онлайн</button>`;root.appendChild(masterPage);let masterCloseTimer=0;function closeMaster(){if(!masterPage.classList.contains('open'))return;clearTimeout(masterCloseTimer);masterPage.classList.remove('open');masterPage.classList.add('closing');masterCloseTimer=setTimeout(()=>masterPage.classList.remove('closing'),520)}masterPage.querySelector('.tn22-back').onclick=closeMaster;masterPage.querySelector('.tn22-master-book').onclick=book;let currentMaster=null,currentMasterTab='Профиль';
+const masterPage=document.createElement('div');masterPage.className='tn22-master-page';masterPage.innerHTML=`<div class="tn22-master-shell"><div class="tn22-master-top"><button class="tn22-back" type="button">←</button><div class="tn22-master-brand">SALON NAME</div><span class="tn42-master-spacer" aria-hidden="true"></span></div><div class="tn22-master-body"></div></div><button class="tn22-master-book" type="button">Записаться онлайн</button>`;root.appendChild(masterPage);let masterCloseTimer=0;function closeMaster(){if(!masterPage.classList.contains('open'))return;clearTimeout(masterCloseTimer);masterPage.classList.remove('open');masterPage.classList.add('closing');masterCloseTimer=setTimeout(()=>masterPage.classList.remove('closing'),520)}masterPage.querySelector('.tn22-back').onclick=closeMaster;let currentMaster=null,currentMasterTab='Профиль';masterPage.querySelector('.tn22-master-book').onclick=()=>{if(currentMaster?.bookingUrl)window.open(currentMaster.bookingUrl,'_blank','noopener,noreferrer');else book()};
 function masterReviews(m){return REVIEW_DATA.filter(r=>m.reviewNames.includes(r[0]));}
-function renderMasterTab(){const body=masterPage.querySelector('.tn22-master-content');if(!body||!currentMaster)return;if(currentMasterTab==='Профиль'){body.innerHTML=`<h3>О мастере</h3><p class="tn22-master-about" style="text-align:left;margin:0">${currentMaster.about}</p>`}else if(currentMasterTab==='Услуги'){const arr=SERVICES.filter(s=>currentMaster.cats.includes(s.cat)).slice(0,8);body.innerHTML=`<h3>Услуги</h3>${arr.length?arr.map(s=>`<div class="tn22-master-service"><b>${s.title}</b><span>Записаться</span></div>`).join(''):'<p class="tn22-master-about" style="text-align:left;margin:0">Пока нет данных об услугах.</p>'}`}else if(currentMasterTab==='Портфолио'){body.innerHTML=`<h3>Портфолио</h3><div class="tn22-master-works">${currentMaster.work.length?currentMaster.work.map(src=>`<img loading="lazy" decoding="async" src="${src}" alt="Работа ${currentMaster.name}">`).join(''):'<p class="tn22-master-about" style="grid-column:1/-1;text-align:left;margin:0">Пока нет фото.</p>'}</div>`}else{const rs=masterReviews(currentMaster);body.innerHTML=`<h3>Отзывы</h3>${rs.length?rs.map(r=>`<div class="tn22-master-review"><strong>${r[0]}</strong><p>${r[1]}</p></div>`).join(''):'<p class="tn22-master-about" style="text-align:left;margin:0">Пока нет отзывов.</p>'}`}}
-function openMaster(id){currentMaster=MASTERS.find(m=>m.id===id);if(!currentMaster)return;currentMasterTab='Профиль';const b=masterPage.querySelector('.tn22-master-body');b.innerHTML=`<div class="tn22-profile"><div class="tn22-profile-circle">${masterAvatar(currentMaster)}</div><h1>${currentMaster.name}</h1><div class="tn22-profile-role">${currentMaster.role}</div><div class="tn22-salon-rating"><b>★</b> — <span>рейтинг не указан</span></div></div><div class="tn22-master-tabs">${['Профиль','Услуги','Портфолио','Отзывы'].map(t=>`<button class="${t==='Профиль'?'active':''}" type="button" data-mtab="${t}">${t}</button>`).join('')}</div><div class="tn22-master-content"></div>`;b.querySelectorAll('[data-mtab]').forEach(x=>x.onclick=()=>{currentMasterTab=x.dataset.mtab;b.querySelectorAll('[data-mtab]').forEach(y=>y.classList.toggle('active',y===x));renderMasterTab()});renderMasterTab();teamSheet.classList.remove('open');clearTimeout(masterCloseTimer);masterPage.classList.remove('closing');masterPage.scrollTop=0;requestAnimationFrame(()=>masterPage.classList.add('open'))}
+function renderMasterTab(){
+ const body=masterPage.querySelector('.tn22-master-content');
+ if(!body||!currentMaster)return;
+ const en=mobileServiceLang()==='en';
+ if(currentMasterTab==='Профиль'){
+  body.innerHTML=`<h3>${en?'About the specialist':'О мастере'}</h3><p class="tn22-master-about" style="text-align:left;margin:0">${en?'Current services and booking are available on Sonline.':currentMaster.about}</p>`;
+ }else if(currentMasterTab==='Услуги'){
+  const ids=new Set(currentMaster.serviceIds);
+  const all=SERVICES.filter(s=>ids.has(s.id));
+  const shown=all.slice(0,15);
+  body.innerHTML=`<h3>${en?'Services':'Услуги'}</h3>${shown.length?shown.map(s=>`<button class="tn22-master-service" type="button" data-master-service-url="${s.bookingUrl}"><b>${en?(localized(SITE.services.find(x=>x.id===s.id)?.title,'en')||s.title):s.title}</b><span>${en?'Book':'Запись'}</span></button>`).join(''):`<p class="tn22-master-about" style="text-align:left;margin:0">${en?'No service data available yet.':'Пока нет данных об услугах.'}</p>`}${all.length>shown.length?`<p class="tn22-master-about">${en?'More services are available on Sonline.':'Остальные услуги доступны в Sonline.'}</p>`:''}`;
+  body.querySelectorAll('[data-master-service-url]').forEach(button=>button.onclick=()=>{
+   const url=button.dataset.masterServiceUrl;
+   if(url)window.open(url,'_blank','noopener,noreferrer');else book();
+  });
+ }else if(currentMasterTab==='Портфолио'){
+  body.innerHTML=`<h3>${en?'Portfolio':'Портфолио'}</h3><div class="tn22-master-works">${currentMaster.work.length?currentMaster.work.map(src=>`<img loading="lazy" decoding="async" src="${src}" alt="Работа ${currentMaster.name}">`).join(''):`<p class="tn22-master-about" style="grid-column:1/-1;text-align:left;margin:0">${en?'No portfolio photos yet.':'Пока нет фото.'}</p>`}</div>`;
+ }else{
+  const rs=masterReviews(currentMaster);
+  body.innerHTML=`<h3>${en?'Reviews':'Отзывы'}</h3>${rs.length?rs.map(r=>`<div class="tn22-master-review"><strong>${r[0]}</strong><p>${r[1]}</p></div>`).join(''):`<p class="tn22-master-about" style="text-align:left;margin:0">${currentMaster.reviewCount?(en?`${currentMaster.reviewCount} reviews on Sonline.`:`${currentMaster.reviewCount} отзывов в Sonline.`):(en?'Reviews can be viewed on Sonline.':'Отзывы можно посмотреть в Sonline.')}</p>${currentMaster.bookingUrl?`<p class="tn22-master-about"><a href="${currentMaster.bookingUrl}" target="_blank" rel="noopener noreferrer">${en?'View profile on Sonline →':'Открыть профиль в Sonline →'}</a></p>`:''}`}`;
+ }
+}
+function openMaster(id){currentMaster=MASTERS.find(m=>m.id===id);if(!currentMaster)return;const en=mobileServiceLang()==='en';currentMasterTab='Профиль';const b=masterPage.querySelector('.tn22-master-body');const count=currentMaster.reviewCount?(en?`${currentMaster.reviewCount} reviews on Sonline`:`${currentMaster.reviewCount} отзывов в Sonline`):(en?'Reviews on Sonline':'Отзывы в Sonline');b.innerHTML=`<div class="tn22-profile"><div class="tn22-profile-circle">${masterAvatar(currentMaster)}</div><h1>${currentMaster.name}</h1><div class="tn22-profile-role">${currentMaster.role}</div><div class="tn22-salon-rating">${count}</div></div><div class="tn22-master-tabs">${['Профиль','Услуги','Портфолио','Отзывы'].map(t=>`<button class="${t==='Профиль'?'active':''}" type="button" data-mtab="${t}">${en?({Профиль:'Profile',Услуги:'Services',Портфолио:'Portfolio',Отзывы:'Reviews'})[t]:t}</button>`).join('')}</div><div class="tn22-master-content"></div>`;b.querySelectorAll('[data-mtab]').forEach(x=>x.onclick=()=>{currentMasterTab=x.dataset.mtab;b.querySelectorAll('[data-mtab]').forEach(y=>y.classList.toggle('active',y===x));renderMasterTab()});renderMasterTab();teamSheet.classList.remove('open');clearTimeout(masterCloseTimer);masterPage.classList.remove('closing');masterPage.scrollTop=0;requestAnimationFrame(()=>masterPage.classList.add('open'))}
 team.querySelectorAll('[data-mid]').forEach(b=>b.onclick=()=>openMaster(b.dataset.mid));teamSheet.querySelectorAll('[data-sheet-mid]').forEach(b=>b.onclick=()=>openMaster(b.dataset.sheetMid));
 
 // REVIEWS

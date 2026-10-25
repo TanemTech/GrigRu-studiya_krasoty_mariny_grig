@@ -84,9 +84,8 @@
   function renderDesktopBooking(lang){
     const box=document.querySelector('#stdBookOverlay .std-book-options');
     if(!box)return;
-    const action=lang==='hy'?'Բացել →':lang==='en'?'Open →':'Открыть →';
     box.innerHTML=bookingItems(lang).map(item=>
-      `<a href="${esc(item.url)}"><span>${esc(item.localizedLabel)}</span><span>${action}</span></a>`
+      `<a class="tn50-book-option" href="${esc(item.url)}"><span class="tn50-book-icon ${esc(item.type||'message')}">${mobileBookingIcon(item.type)}</span><span class="std-book-label"><strong>${esc(item.localizedLabel)}</strong></span><span class="tn50-book-arrow" aria-hidden="true">→</span></a>`
     ).join('');
     box.querySelectorAll('a').forEach(link=>setLink(link,link.getAttribute('href'),'#salonDesktopContacts'));
   }
@@ -135,7 +134,7 @@
     const state=scheduleState(),copy=statusCopy(state,lang),kind=state?(state.open?'open':'closed'):'';
     const desktopMain=document.querySelector('#stdStatusMain');
     const desktopSub=document.querySelector('#stdStatusSub');
-    if(desktopMain)desktopMain.textContent=copy.main;
+    if(desktopMain){desktopMain.textContent=copy.main;desktopMain.classList.toggle('open',kind==='open');desktopMain.classList.toggle('closed',kind==='closed')}
     if(desktopSub)desktopSub.textContent=copy.sub;
     const sticky=document.querySelector('#stdStickyServiceCard');
     sticky?.classList.remove('is-open','is-closed');
@@ -345,8 +344,83 @@
     if(description)description.setAttribute('content',text(data.salon.heroDescription,lang)||text(data.salon.about,lang));
   }
 
+  // Client-specific Sonline selection is layered on top of the approved service
+  // card markup. This deliberately leaves the factory's frozen markup untouched.
+  function setupClientInteractions(){
+    const desktop=window.__BR_DESKTOP_DEVICE__===true;
+    const list=document.querySelector(desktop?'#stdServiceList':'#tn13Services .tn31-service-list');
+    if(list){
+      const refresh=()=>{
+        const category=desktop
+          ?document.querySelector('#stdServiceTabs [data-service-category].is-active')?.dataset.serviceCategory||'Все'
+          :document.querySelector('#tn13Services [data-scat].active')?.dataset.scat||data.categoryOrder[0];
+        const ordered=category==='Все'
+          ?data.categoryOrder.flatMap(cat=>data.services.filter(service=>service.category===cat))
+          :data.services.filter(service=>service.category===category);
+        const rows=list.querySelectorAll(desktop?'.dct-service-card':'.tn31-service-row');
+        rows.forEach((row,index)=>{
+          const service=ordered[index];
+          if(!service)return;
+          row.dataset.clientServiceId=service.id;
+          row.dataset.clientBookingUrl=service.bookingUrl||'';
+          if(!desktop){
+            row.querySelectorAll('.tn31-service-time[data-duration]').forEach(time=>{
+              if(/мин/i.test(time.dataset.duration)){
+                const correct=(time.dataset.duration.match(/\d+(?:[.,]\d+)?/)||[''])[0]+(currentLang()==='en'?' min':' мин');
+                if(time.textContent!==correct)time.textContent=correct;
+              }
+            });
+            const details=row.querySelector('.tn31-service-demo-desc p');
+            const more=row.querySelector('[data-service-details]');
+            if(details&&more){
+              const lineHeight=parseFloat(getComputedStyle(details).lineHeight)||20;
+              more.hidden=details.scrollHeight<=lineHeight*2+2;
+            }
+          }
+        });
+      };
+      let queued=false;
+      const schedule=()=>{
+        if(queued)return;
+        queued=true;
+        requestAnimationFrame(()=>{queued=false;refresh()});
+      };
+      new MutationObserver(schedule).observe(list,{childList:true,subtree:true});
+      const tabs=document.querySelector(desktop?'#stdServiceTabs':'#tn13Services .tn31-cats');
+      if(tabs)new MutationObserver(schedule).observe(tabs,{childList:true,subtree:true});
+      refresh();
+      if(document.fonts?.ready)document.fonts.ready.then(schedule).catch(()=>{});
+      document.addEventListener('click',event=>{
+        const trigger=event.target.closest('[data-service-book],[data-book-service]');
+        if(!trigger||!list.contains(trigger))return;
+        const row=trigger.closest(desktop?'.dct-service-card':'.tn31-service-row');
+        const url=row?.dataset.clientBookingUrl;
+        if(!/^https:\/\/widget\.sonline\.su\/ru\/mastersAndDate\/\?/.test(url||''))return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        window.open(url,'_blank','noopener,noreferrer');
+      },true);
+    }
+
+    document.addEventListener('click',event=>{
+      const anchor=event.target.closest('.std-nav a[href^="#"],.tn22-navpop a[href^="#"],.std-header-brand[href^="#"]');
+      if(!anchor)return;
+      const id=anchor.getAttribute('href')?.slice(1);
+      const target=id&&document.getElementById(id);
+      if(!target)return;
+      event.preventDefault();
+      const header=desktop?document.querySelector('.std-header'):document.querySelector('.tn22-top');
+      const position=header?getComputedStyle(header).position:'';
+      const offset=/^(?:fixed|sticky)$/.test(position)?header.getBoundingClientRect().height:0;
+      const top=Math.max(0,window.scrollY+target.getBoundingClientRect().top-offset);
+      window.scrollTo({top,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+      history.replaceState(null,'','#'+id);
+    },true);
+  }
+
   window.addEventListener('salon-template:languagechange',apply);
   apply();
+  setupClientInteractions();
   [80,260,700].forEach(delay=>window.setTimeout(apply,delay));
   window.setInterval(()=>applySchedule(currentLang()),60000);
 })();
