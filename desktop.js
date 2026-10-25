@@ -502,7 +502,7 @@
   function openDesktopViewer(items,index=0,source='gallery'){
     galleryItems=Array.isArray(items)&&items.length?items:PORTFOLIO.slice();
     gallery.dataset.source=source;
-    galleryViewAll.hidden=source!=='portfolio';
+    galleryViewAll.hidden=source!=='portfolio'&&source!=='master';
     galleryIndex=Math.max(0,Math.min(index,galleryItems.length-1));
     paintGallery();
     gallery.classList.add('open');
@@ -571,7 +571,14 @@
   document.getElementById('stdGalleryClose').addEventListener('click',closeDesktopViewer);
   document.getElementById('stdGalleryPrev').addEventListener('click',()=>moveDesktopGallery(-1));
   document.getElementById('stdGalleryNext').addEventListener('click',()=>moveDesktopGallery(1));
-  galleryViewAll.addEventListener('click',()=>{closeDesktopViewer();openDesktopGalleryBrowser('Ногти')});
+  galleryViewAll.addEventListener('click',()=>{const category=gallery.dataset.source==='master'?gallery.dataset.masterCategory:'Ногти';closeDesktopViewer();openDesktopGalleryBrowser(category||'Ногти')});
+  // Client profiles delegate to the same tested portfolio lightbox (zoom, swipe, full gallery).
+  document.addEventListener('tanem:open-master-gallery',event=>{
+    const {items,index,category}=event.detail||{};
+    if(!Array.isArray(items)||!items.length)return;
+    gallery.dataset.masterCategory=category||'Салон';
+    openDesktopViewer(items,index||0,'master');
+  });
   gallery.addEventListener('click',e=>{if(e.target===gallery)closeDesktopViewer()});
 
   galleryStage.addEventListener('wheel',e=>{

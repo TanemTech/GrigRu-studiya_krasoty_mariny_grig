@@ -390,6 +390,38 @@
       page=(page+Number(button.dataset.turn)+total)%total;
       update();
     }));
+    // Horizontal touch, mouse and trackpad gestures turn the same four-card pages.
+    let pointer=null,suppressClick=false,wheelDelta=0;
+    track.style.touchAction='pan-y';
+    track.addEventListener('pointerdown',event=>{
+      if(event.button!==0)return;
+      pointer={id:event.pointerId,x:event.clientX,y:event.clientY,moved:false};
+    });
+    track.addEventListener('pointermove',event=>{
+      if(!pointer||event.pointerId!==pointer.id)return;
+      if(Math.abs(event.clientX-pointer.x)>12&&Math.abs(event.clientX-pointer.x)>Math.abs(event.clientY-pointer.y))pointer.moved=true;
+    });
+    track.addEventListener('pointerup',event=>{
+      if(!pointer||event.pointerId!==pointer.id)return;
+      const dx=event.clientX-pointer.x,dy=event.clientY-pointer.y;
+      if(pointer.moved&&Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.2){
+        page=(page+(dx<0?1:-1)+total)%total;
+        update();
+        suppressClick=true;
+      }
+      pointer=null;
+    });
+    track.addEventListener('pointercancel',()=>{pointer=null});
+    track.addEventListener('click',event=>{
+      if(!suppressClick)return;
+      suppressClick=false;event.preventDefault();event.stopImmediatePropagation();
+    },true);
+    track.addEventListener('wheel',event=>{
+      if(Math.abs(event.deltaX)<=Math.abs(event.deltaY)*1.4||Math.abs(event.deltaX)<3)return;
+      event.preventDefault();
+      wheelDelta+=event.deltaX;
+      if(Math.abs(wheelDelta)>65){page=(page+(wheelDelta>0?1:-1)+total)%total;update();wheelDelta=0}
+    },{passive:false});
     update();
   }
 
@@ -406,10 +438,12 @@
     const overlay=document.querySelector(desktop?'#stdMasterOverlay':'.tn22-master-page');
     if(!overlay)return;
     let selectedId='';
+    let historyEntryOpen=false;
+    const historyKey='tanemMasterProfile';
     const tabs=['about','services','portfolio','reviews'];
     const copy={
-      ru:{about:'О мастере',services:'Услуги',portfolio:'Портфолио',reviews:'Отзывы',book:'Записаться',more:'Показать весь прайс',less:'Свернуть прайс',emptyServices:'Услуги уточняются в Sonline.',emptyPortfolio:'Фотографии работ мастера пока не подтверждены.',emptyReviews:'Тексты отзывов этого мастера пока не доступны.',source:'Источник: Sonline',view:'Открыть профиль в Sonline',none:'Длительность уточняется'},
-      en:{about:'About',services:'Services',portfolio:'Portfolio',reviews:'Reviews',book:'Book',more:'Show full price list',less:'Collapse price list',emptyServices:'Check services on Sonline.',emptyPortfolio:'Verified photos of this specialist’s work are not available yet.',emptyReviews:'Individual review texts are not available yet.',source:'Source: Sonline',view:'Open Sonline profile',none:'Duration on request'}
+      ru:{about:'О мастере',services:'Услуги',portfolio:'Портфолио',reviews:'Отзывы',book:'Записаться',more:'Показать весь прайс',less:'Свернуть прайс',emptyServices:'Услуги уточняются в Sonline.',emptyPortfolio:'Фотографии по этому направлению пока не добавлены.',portfolioNote:'Примеры работ студии по направлению мастера',emptyReviews:'Тексты персональных отзывов из Sonline пока не получены.',source:'Источник: Sonline',view:'Открыть профиль в Sonline',none:'Длительность уточняется'},
+      en:{about:'About',services:'Services',portfolio:'Portfolio',reviews:'Reviews',book:'Book',more:'Show full price list',less:'Collapse price list',emptyServices:'Check services on Sonline.',emptyPortfolio:'Studio gallery photos for this specialty are not available yet.',portfolioNote:'Studio work examples in this specialty',emptyReviews:'Individual Sonline review texts are not yet available.',source:'Source: Sonline',view:'Open Sonline profile',none:'Duration on request'}
     };
     function biography(master,lang){
       const first=text(master.name,lang).trim().split(/\s+/u)[0];
@@ -424,49 +458,54 @@
         ?`I’m ${first}. I start by listening to your wishes and helping you choose the right service. A thoughtful approach, attention to detail and comfort are central to every visit.`
         :`Я ${first}. Начинаю с ваших пожеланий и помогаю подобрать подходящую услугу. Внимание к деталям, профессиональный подход и комфорт — главные ориентиры в работе.`;
     }
-    const serviceUrl=service=>/^https:\/\/widget\.sonline\.su\//.test(service.bookingUrl||'')?service.bookingUrl:'';
     function serviceMarkup(service,lang){
       const name=text(service.title,lang);
       const duration=text(service.duration,lang);
       const parts=displayServiceParts(name,!!duration);
       const price=text(service.price,lang);
-      const url=serviceUrl(service);
-      const tag=url?'a':'button';
-      const action=url?'href="'+esc(url)+'" target="_blank" rel="noopener noreferrer"':'type="button" data-master-fallback';
-      return '<'+tag+' class="tanem-master-service" '+action+'>'+
+      return '<button class="tanem-master-service" type="button" data-master-book>'+
         '<span class="tanem-master-service-copy"><strong>'+esc(parts.name)+'</strong>'+
         (parts.note?'<small>'+esc(parts.note)+'</small>':'')+'</span>'+
         '<span class="tanem-master-service-side">'+(duration?'<small>'+esc(displayDuration(duration,lang))+'</small>':'')+
-        '<strong>'+esc(price||copy[lang].book)+'</strong></span></'+tag+'>';
+        '<strong>'+esc(price||copy[lang].book)+'</strong></span></button>';
+    }
+    function masterGallery(master){
+      const role=text(master.role,'ru').toLowerCase();
+      const groups=/ногт|маникюр|педикюр/.test(role)?['Маникюр','Педикюр']:/парикмах|стилист|волос/.test(role)?['Волосы']:[];
+      return groups.flatMap(group=>(data.media?.gallery?.[group]||[]).map(item=>({src:item.src,alt:item.alt,category:group})));
     }
     function profileReviews(master,lang){
       const ids=new Set(master.reviewIds||[]);
-      return (data.reviews||[]).filter(review=>ids.has(review.id)&&review.rating===5&&/sonline/i.test(text(review.source,'ru'))&&text(review.text,lang));
+      return (data.reviews||[]).filter(review=>ids.has(review.id)&&/sonline/i.test(text(review.source,'ru'))&&text(review.text,lang)).slice(0,9);
     }
     function reviewMarkup(review,lang){
-      return '<article class="tanem-master-review"><div><span>★★★★★</span><strong>'+esc(text(review.author,lang))+'</strong></div><p>'+esc(text(review.text,lang))+'</p><small>'+esc(text(review.source,lang)||'Sonline')+'</small></article>';
+      const name=text(review.author,lang);
+      const rating=Number(review.rating);
+      const stars=Number.isInteger(rating)&&rating>=1&&rating<=5?'★'.repeat(rating):'';
+      return '<article class="tanem-master-review '+(desktop?'std-review-card':'tn30-review-card')+'">'+
+        '<div class="'+(desktop?'std-review-head':'tn30-review-head')+'"><span class="'+(desktop?'std-review-avatar':'tn30-review-avatar')+'">'+esc([...String(name)][0]||'S')+'</span><span><strong class="'+(desktop?'std-review-name':'tn30-review-name')+'">'+esc(name)+'</strong><span class="'+(desktop?'std-review-meta':'tn30-review-meta')+'">Sonline</span>'+(stars?'<span class="tanem-master-stars">'+stars+'</span>':'')+'</span></div>'+
+        '<p class="'+(desktop?'std-review-text':'')+'">'+esc(text(review.text,lang))+'</p></article>';
     }
     function render(master){
       const lang=currentLang()==='en'?'en':'ru',words=copy[lang];
       const target=overlay.querySelector(desktop?'#stdMasterPageContent':'.tn22-master-body');
       if(!target)return;
       const items=(data.services||[]).filter(item=>(master.serviceIds||[]).includes(item.id));
-      const works=(master.work||[]).map(item=>typeof item==='string'?item:item?.src).filter(Boolean);
+      const works=masterGallery(master);
       const reviews=profileReviews(master,lang);
       const name=text(master.name,lang),role=text(master.role,lang),avatar=typeof master.photo==='string'?master.photo:master.photo?.src;
-      const count=Number(master.reviewCount)||0;
       const profileUrl=/^https:\/\/widget\.sonline\.su\//.test(master.bookingUrl||'')?master.bookingUrl:'';
       const sections=[
-        '<section class="tanem-master-section" id="tanem-master-about"><p class="tanem-master-kicker">01 / '+esc(words.about)+'</p><h3>'+esc(words.about)+'</h3><p class="tanem-master-bio">'+esc(biography(master,lang))+'</p></section>',
-        '<section class="tanem-master-section" id="tanem-master-services"><p class="tanem-master-kicker">02 / '+esc(words.services)+'</p><h3>'+esc(words.services)+'</h3>'+
+        '<section class="tanem-master-section" id="tanem-master-about"><h3>'+esc(words.about)+'</h3><p class="tanem-master-bio">'+esc(biography(master,lang))+'</p></section>',
+        '<section class="tanem-master-section" id="tanem-master-services"><h3>'+esc(words.services)+'</h3>'+
           (items.length?'<div class="tanem-master-price-list">'+items.slice(0,6).map(item=>serviceMarkup(item,lang)).join('')+
             (items.length>6?'<div class="tanem-master-extra" hidden>'+items.slice(6).map(item=>serviceMarkup(item,lang)).join('')+'</div>':'')+'</div>':
             '<p class="tanem-master-empty">'+esc(words.emptyServices)+'</p>')+
           (items.length>6?'<button class="tanem-master-more" type="button" aria-expanded="false" data-master-expand>'+esc(words.more)+' <span>↓</span></button>':'')+'</section>',
-        '<section class="tanem-master-section" id="tanem-master-portfolio"><p class="tanem-master-kicker">03 / '+esc(words.portfolio)+'</p><h3>'+esc(words.portfolio)+'</h3>'+
-          (works.length?'<div class="tanem-master-gallery">'+works.map((src,i)=>'<a href="'+esc(src)+'" target="_blank" rel="noopener noreferrer"><img src="'+esc(src)+'" alt="'+esc(name)+' — '+(i+1)+'" loading="lazy"></a>').join('')+'</div>':
+        '<section class="tanem-master-section" id="tanem-master-portfolio"><h3>'+esc(words.portfolio)+'</h3>'+
+          (works.length?'<p class="tanem-master-gallery-note">'+esc(words.portfolioNote)+'</p><div class="tanem-master-gallery">'+works.map((item,i)=>'<button type="button" data-master-work="'+i+'" aria-label="'+esc(lang==='en'?'View photo':'Посмотреть фотографию')+'"><img src="'+esc(item.src)+'" alt="'+esc(text(item.alt,lang))+'" loading="lazy"></button>').join('')+'</div>':
             '<p class="tanem-master-empty">'+esc(words.emptyPortfolio)+'</p>')+'</section>',
-        '<section class="tanem-master-section" id="tanem-master-reviews"><p class="tanem-master-kicker">04 / '+esc(words.reviews)+'</p><h3>'+esc(words.reviews)+'</h3><p class="tanem-master-review-source">'+esc(words.source)+(count?' · '+count:'')+'</p>'+
+        '<section class="tanem-master-section" id="tanem-master-reviews"><h3>'+esc(words.reviews)+'</h3><p class="tanem-master-review-source">'+esc(words.source)+'</p>'+
           (reviews.length?'<div class="tanem-master-review-window"><div class="tanem-master-review-track">'+reviews.concat(reviews).map(review=>reviewMarkup(review,lang)).join('')+'</div></div>':
             '<p class="tanem-master-empty">'+esc(words.emptyReviews)+'</p>')+
           (profileUrl?'<a class="tanem-master-source-link" href="'+esc(profileUrl)+'" target="_blank" rel="noopener noreferrer">'+esc(words.view)+' ↗</a>':'')+'</section>'
@@ -474,22 +513,20 @@
       target.innerHTML='<div class="tanem-master-head"><div class="tanem-master-photo">'+(avatar?'<img src="'+esc(avatar)+'" alt="'+esc(name)+'">':'')+'</div><h2>'+esc(name)+'</h2><p>'+esc(role)+'</p></div><div class="tanem-master-sections">'+sections.join('')+'</div>';
       const existing=overlay.querySelector('.tanem-master-jump');
       if(existing)existing.remove();
-      const nav=document.createElement('nav');nav.className='tanem-master-jump';nav.setAttribute('aria-label',lang==='en'?'Specialist sections':'Разделы профиля');
-      nav.innerHTML=tabs.map((key,i)=>'<button type="button" data-jump="'+key+'" class="'+(i===0?'is-active':'')+'">'+esc(words[key])+'</button>').join('');
-      overlay.appendChild(nav);
+      const nav=document.createElement('nav');nav.className='tanem-master-jump '+(desktop?'std-master-tabs':'tn22-master-tabs');nav.setAttribute('aria-label',lang==='en'?'Specialist sections':'Разделы профиля');
+      nav.innerHTML=tabs.map((key,i)=>'<button type="button" data-jump="'+key+'" class="'+(i===0?'active':'')+'">'+esc(words[key])+'</button>').join('');
+      target.querySelector('.tanem-master-head').after(nav);
       const updateNav=()=>{
-        const head=target.querySelector('.tanem-master-head');
-        const threshold=(head?.offsetHeight||210)-50;
-        nav.classList.toggle('is-visible',overlay.scrollTop>threshold);
         const sections=[...target.querySelectorAll('.tanem-master-section')];
-        const active=[...sections].reverse().find(section=>section.getBoundingClientRect().top<overlay.getBoundingClientRect().top+overlay.clientHeight*.45)||sections[0];
-        nav.querySelectorAll('[data-jump]').forEach((button,i)=>button.classList.toggle('is-active',active===sections[i]));
+        const stickyBottom=nav.getBoundingClientRect().bottom;
+        const active=[...sections].reverse().find(section=>section.getBoundingClientRect().top<=stickyBottom+52)||sections[0];
+        nav.querySelectorAll('[data-jump]').forEach((button,i)=>button.classList.toggle('active',active===sections[i]));
       };
       overlay.__tanemMasterUpdate=updateNav;
       nav.querySelectorAll('[data-jump]').forEach(button=>button.addEventListener('click',()=>{
         const section=target.querySelector('#tanem-master-'+button.dataset.jump);
         if(!section)return;
-        const position=overlay.scrollTop+section.getBoundingClientRect().top-overlay.getBoundingClientRect().top-24;
+        const position=overlay.scrollTop+section.getBoundingClientRect().top-overlay.getBoundingClientRect().top-nav.offsetHeight-32;
         overlay.scrollTo({top:position,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
       }));
       target.querySelector('[data-master-expand]')?.addEventListener('click',event=>{
@@ -498,14 +535,13 @@
         target.querySelector('.tanem-master-extra').hidden=expanded;
         button.innerHTML=esc(expanded?words.more:words.less)+' <span>'+(expanded?'↓':'↑')+'</span>';
       });
-      target.querySelectorAll('[data-master-fallback]').forEach(button=>button.addEventListener('click',()=>{
-        if(desktop){document.getElementById('stdMasterPageClose')?.click();document.getElementById('stdHeaderBookBtn')?.click()}
-        else {overlay.querySelector('.tn22-back')?.click();document.querySelector('#tn13Top .tn22-cta')?.click()}
+      target.querySelectorAll('[data-master-work]').forEach(button=>button.addEventListener('click',()=>{
+        document.dispatchEvent(new CustomEvent('tanem:open-master-gallery',{detail:{items:works.map(item=>({src:item.src,alt:text(item.alt,lang)})),index:Number(button.dataset.masterWork)||0,category:works[Number(button.dataset.masterWork)||0]?.category||'Салон'}}));
       }));
       const track=target.querySelector('.tanem-master-review-track');
       if(track)startMasterReviews(track,overlay);
       const book=overlay.querySelector(desktop?'#stdMasterPageBook':'.tn22-master-book');
-      if(book)book.textContent=lang==='en'?'Book online':'Записаться онлайн';
+      if(book)book.textContent=lang==='en'?'Book':'Записаться';
       updateNav();
     }
     function startMasterReviews(track,container){
@@ -523,17 +559,41 @@
       ['pointerup','pointercancel','lostpointercapture'].forEach(type=>track.addEventListener(type,()=>{dragging=false}));
       requestAnimationFrame(move);
     }
+    // Profile service rows AND its persistent booking CTA use one familiar chooser.
+    overlay.addEventListener('click',event=>{
+      if(!event.target.closest('[data-master-book],#stdMasterPageBook,.tn22-master-book'))return;
+      event.preventDefault();event.stopImmediatePropagation();
+      overlay.querySelector(desktop?'#stdMasterPageClose':'.tn22-back')?.click();
+      if(desktop)document.getElementById('stdHeaderBookBtn')?.click();
+      else document.querySelector('#tn13Top .tn22-cta')?.click();
+    },true);
     document.addEventListener('click',event=>{
       const trigger=event.target.closest('[data-desktop-master],[data-mid],[data-sheet-mid]');
       if(trigger)selectedId=trigger.dataset.desktopMaster||trigger.dataset.mid||trigger.dataset.sheetMid||'';
     },true);
     new MutationObserver(()=>{
-      if(!overlay.classList.contains('open'))return;
+      if(!overlay.classList.contains('open')){
+        if(historyEntryOpen&&history.state?.[historyKey])history.back();
+        historyEntryOpen=false;
+        return;
+      }
       const fallbackName=overlay.querySelector(desktop?'.std-master-profile h2':'.tn22-profile h1')?.textContent;
       const master=(data.team||[]).find(item=>item.id===selectedId)||
         (data.team||[]).find(item=>text(item.name,'ru')===fallbackName);
-      if(master)render(master);
+      if(master){
+        render(master);
+        if(!historyEntryOpen){
+          history.pushState({...history.state,[historyKey]:master.id},'');
+          historyEntryOpen=true;
+        }
+      }
     }).observe(overlay,{attributes:true,attributeFilter:['class']});
+    window.addEventListener('popstate',()=>{
+      if(!overlay.classList.contains('open'))return;
+      if(history.state?.[historyKey])return;
+      historyEntryOpen=false;
+      overlay.querySelector(desktop?'#stdMasterPageClose':'.tn22-back')?.click();
+    });
     overlay.addEventListener('scroll',()=>overlay.__tanemMasterUpdate?.(),{passive:true});
     window.addEventListener('salon-template:languagechange',()=>{
       if(!overlay.classList.contains('open'))return;
@@ -542,8 +602,8 @@
     });
   }
 
-  // Client-specific Sonline selection is layered on top of the approved service
-  // card markup. This deliberately leaves the factory's frozen markup untouched.
+  // Client-specific labels are layered over approved service cards; the original
+  // booking chooser and factory's frozen markup are left untouched.
   function setupClientInteractions(){
     const desktop=window.__BR_DESKTOP_DEVICE__===true;
     const list=document.querySelector(desktop?'#stdServiceList':'#tn13Services .tn31-service-list');
@@ -605,16 +665,7 @@
       if(tabs)new MutationObserver(schedule).observe(tabs,{childList:true,subtree:true});
       refresh();
       if(document.fonts?.ready)document.fonts.ready.then(schedule).catch(()=>{});
-      document.addEventListener('click',event=>{
-        const trigger=event.target.closest('[data-service-book],[data-book-service]');
-        if(!trigger||!list.contains(trigger))return;
-        const row=trigger.closest(desktop?'.dct-service-card':'.tn31-service-row');
-        const url=row?.dataset.clientBookingUrl;
-        if(!/^https:\/\/widget\.sonline\.su\/ru\/mastersAndDate\/\?/.test(url||''))return;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        window.open(url,'_blank','noopener,noreferrer');
-      },true);
+      // Preserve the approved booking-method chooser on every catalogue card.
     }
 
     document.addEventListener('click',event=>{
