@@ -344,6 +344,204 @@
     if(description)description.setAttribute('content',text(data.salon.heroDescription,lang)||text(data.salon.about,lang));
   }
 
+  // Client presentation only: leave the official Sonline titles and booking
+  // duration fields in site-data.js intact (they can represent different times).
+  function displayDuration(raw,lang=currentLang()){
+    const source=String(raw||'').trim();
+    const match=source.match(/^(\d+(?:[.,]\d+)?)\s*(мин(?:ут(?:а|ы)?)?|min(?:utes?)?|ч(?:ас(?:а|ов)?)?|h(?:ours?)?)\.?$/i);
+    if(!match)return source;
+    const number=Number(match[1].replace(',','.'));
+    const minutes=/^(?:мин|min)/i.test(match[2])?number:number*60;
+    if(minutes<60)return minutes+(lang==='en'?' min':' мин');
+    const hours=minutes/60;
+    if(Number.isInteger(hours)||Number.isInteger(hours*2))return String(hours).replace('.',lang==='en'?'.':',')+(lang==='en'?' h':' ч');
+    const whole=Math.floor(hours),remainder=Math.round(minutes-whole*60);
+    return (whole?whole+(lang==='en'?' h ':' ч '):'')+remainder+(lang==='en'?' min':' мин');
+  }
+  function displayServiceParts(value,hasDuration){
+    let name=String(value||'').trim(),note='';
+    if(hasDuration)name=name.replace(/\s*(?:[—–-]\s*)?\d+(?:[.,]\d+)?\s*(?:мин(?:ут(?:а|ы)?)?|min(?:utes?)?)\.?\s*$/iu,'').trim();
+    const parentheses=name.match(/^(.*?)\s*\(([^()]{9,})\)\s*$/u);
+    if(parentheses){name=parentheses[1].trim();note=parentheses[2].trim()}
+    else if(name.includes(' — ')){const parts=name.split(' — ');name=parts.shift().trim();note=parts.join(' — ').trim()}
+    return {name,note};
+  }
+
+  function setupDesktopTeamPaging(){
+    const track=document.getElementById('stdTeamTrack');
+    if(!track)return;
+    const cards=[...track.children].filter(card=>card.classList.contains('std-master'));
+    if(cards.length<=4)return;
+    track.classList.add('tanem-paged-team');
+    let page=0;
+    const total=Math.ceil(cards.length/4);
+    const controls=document.createElement('div');
+    controls.className='tanem-team-controls';
+    controls.innerHTML='<button type="button" data-turn="-1" aria-label="Предыдущие мастера">←</button><span aria-live="polite"></span><button type="button" data-turn="1" aria-label="Следующие мастера">→</button>';
+    track.after(controls);
+    const update=()=>{
+      cards.forEach((card,i)=>{
+        card.hidden=Math.floor(i/4)!==page;
+        card.classList.toggle('tanem-team-solo',page===total-1&&cards.length%4===1&&i===cards.length-1);
+      });
+      controls.querySelector('span').textContent=(page+1)+' / '+total;
+    };
+    controls.querySelectorAll('[data-turn]').forEach(button=>button.addEventListener('click',()=>{
+      page=(page+Number(button.dataset.turn)+total)%total;
+      update();
+    }));
+    update();
+  }
+
+  function alignMobileMasterNames(){
+    document.querySelectorAll('#tn13Team .tn22-master-card[data-mid]').forEach(card=>{
+      const master=(data.team||[]).find(item=>item.id===card.dataset.mid);
+      const label=card.querySelector('.tn22-master-name');
+      if(master&&label)label.textContent=text(master.name,currentLang()).trim().split(/\s+/u)[0];
+    });
+  }
+
+  function setupMasterProfiles(){
+    const desktop=window.__BR_DESKTOP_DEVICE__===true;
+    const overlay=document.querySelector(desktop?'#stdMasterOverlay':'.tn22-master-page');
+    if(!overlay)return;
+    let selectedId='';
+    const tabs=['about','services','portfolio','reviews'];
+    const copy={
+      ru:{about:'О мастере',services:'Услуги',portfolio:'Портфолио',reviews:'Отзывы',book:'Записаться',more:'Показать весь прайс',less:'Свернуть прайс',emptyServices:'Услуги уточняются в Sonline.',emptyPortfolio:'Фотографии работ мастера пока не подтверждены.',emptyReviews:'Тексты отзывов этого мастера пока не доступны.',source:'Источник: Sonline',view:'Открыть профиль в Sonline',none:'Длительность уточняется'},
+      en:{about:'About',services:'Services',portfolio:'Portfolio',reviews:'Reviews',book:'Book',more:'Show full price list',less:'Collapse price list',emptyServices:'Check services on Sonline.',emptyPortfolio:'Verified photos of this specialist’s work are not available yet.',emptyReviews:'Individual review texts are not available yet.',source:'Source: Sonline',view:'Open Sonline profile',none:'Duration on request'}
+    };
+    function biography(master,lang){
+      const first=text(master.name,lang).trim().split(/\s+/u)[0];
+      const role=text(master.role,'ru').toLowerCase();
+      if(/ногт|маникюр/.test(role))return lang==='en'
+        ?`I’m ${first}, a nail specialist. My approach begins with your needs and preferences: together we choose a service that suits your routine and the result you want. Professional care, comfort and attention to detail matter throughout your visit.`
+        :`Я ${first}, мастер ногтевого сервиса. Начинаю с ваших пожеланий и задач: вместе подберём подходящий уход и результат, который соответствует вашему образу жизни. В основе моего подхода — профессионализм, внимание к деталям и ваш комфорт.`;
+      if(/парикмах|стилист|волос/.test(role))return lang==='en'
+        ?`I’m ${first}, a hair stylist. I help you choose a haircut, color or treatment that fits your hair and your wishes. My approach focuses on thoughtful consultation, professional care and your comfort.`
+        :`Я ${first}, парикмахер-стилист. Помогаю подобрать стрижку, окрашивание или уход с учётом особенностей волос и ваших пожеланий. Мой подход — внимательная консультация, профессиональная работа и комфорт на каждом этапе.`;
+      return lang==='en'
+        ?`I’m ${first}. I start by listening to your wishes and helping you choose the right service. A thoughtful approach, attention to detail and comfort are central to every visit.`
+        :`Я ${first}. Начинаю с ваших пожеланий и помогаю подобрать подходящую услугу. Внимание к деталям, профессиональный подход и комфорт — главные ориентиры в работе.`;
+    }
+    const serviceUrl=service=>/^https:\/\/widget\.sonline\.su\//.test(service.bookingUrl||'')?service.bookingUrl:'';
+    function serviceMarkup(service,lang){
+      const name=text(service.title,lang);
+      const duration=text(service.duration,lang);
+      const parts=displayServiceParts(name,!!duration);
+      const price=text(service.price,lang);
+      const url=serviceUrl(service);
+      const tag=url?'a':'button';
+      const action=url?'href="'+esc(url)+'" target="_blank" rel="noopener noreferrer"':'type="button" data-master-fallback';
+      return '<'+tag+' class="tanem-master-service" '+action+'>'+
+        '<span class="tanem-master-service-copy"><strong>'+esc(parts.name)+'</strong>'+
+        (parts.note?'<small>'+esc(parts.note)+'</small>':'')+'</span>'+
+        '<span class="tanem-master-service-side">'+(duration?'<small>'+esc(displayDuration(duration,lang))+'</small>':'')+
+        '<strong>'+esc(price||copy[lang].book)+'</strong></span></'+tag+'>';
+    }
+    function profileReviews(master,lang){
+      const ids=new Set(master.reviewIds||[]);
+      return (data.reviews||[]).filter(review=>ids.has(review.id)&&review.rating===5&&/sonline/i.test(text(review.source,'ru'))&&text(review.text,lang));
+    }
+    function reviewMarkup(review,lang){
+      return '<article class="tanem-master-review"><div><span>★★★★★</span><strong>'+esc(text(review.author,lang))+'</strong></div><p>'+esc(text(review.text,lang))+'</p><small>'+esc(text(review.source,lang)||'Sonline')+'</small></article>';
+    }
+    function render(master){
+      const lang=currentLang()==='en'?'en':'ru',words=copy[lang];
+      const target=overlay.querySelector(desktop?'#stdMasterPageContent':'.tn22-master-body');
+      if(!target)return;
+      const items=(data.services||[]).filter(item=>(master.serviceIds||[]).includes(item.id));
+      const works=(master.work||[]).map(item=>typeof item==='string'?item:item?.src).filter(Boolean);
+      const reviews=profileReviews(master,lang);
+      const name=text(master.name,lang),role=text(master.role,lang),avatar=typeof master.photo==='string'?master.photo:master.photo?.src;
+      const count=Number(master.reviewCount)||0;
+      const profileUrl=/^https:\/\/widget\.sonline\.su\//.test(master.bookingUrl||'')?master.bookingUrl:'';
+      const sections=[
+        '<section class="tanem-master-section" id="tanem-master-about"><p class="tanem-master-kicker">01 / '+esc(words.about)+'</p><h3>'+esc(words.about)+'</h3><p class="tanem-master-bio">'+esc(biography(master,lang))+'</p></section>',
+        '<section class="tanem-master-section" id="tanem-master-services"><p class="tanem-master-kicker">02 / '+esc(words.services)+'</p><h3>'+esc(words.services)+'</h3>'+
+          (items.length?'<div class="tanem-master-price-list">'+items.slice(0,6).map(item=>serviceMarkup(item,lang)).join('')+
+            (items.length>6?'<div class="tanem-master-extra" hidden>'+items.slice(6).map(item=>serviceMarkup(item,lang)).join('')+'</div>':'')+'</div>':
+            '<p class="tanem-master-empty">'+esc(words.emptyServices)+'</p>')+
+          (items.length>6?'<button class="tanem-master-more" type="button" aria-expanded="false" data-master-expand>'+esc(words.more)+' <span>↓</span></button>':'')+'</section>',
+        '<section class="tanem-master-section" id="tanem-master-portfolio"><p class="tanem-master-kicker">03 / '+esc(words.portfolio)+'</p><h3>'+esc(words.portfolio)+'</h3>'+
+          (works.length?'<div class="tanem-master-gallery">'+works.map((src,i)=>'<a href="'+esc(src)+'" target="_blank" rel="noopener noreferrer"><img src="'+esc(src)+'" alt="'+esc(name)+' — '+(i+1)+'" loading="lazy"></a>').join('')+'</div>':
+            '<p class="tanem-master-empty">'+esc(words.emptyPortfolio)+'</p>')+'</section>',
+        '<section class="tanem-master-section" id="tanem-master-reviews"><p class="tanem-master-kicker">04 / '+esc(words.reviews)+'</p><h3>'+esc(words.reviews)+'</h3><p class="tanem-master-review-source">'+esc(words.source)+(count?' · '+count:'')+'</p>'+
+          (reviews.length?'<div class="tanem-master-review-window"><div class="tanem-master-review-track">'+reviews.concat(reviews).map(review=>reviewMarkup(review,lang)).join('')+'</div></div>':
+            '<p class="tanem-master-empty">'+esc(words.emptyReviews)+'</p>')+
+          (profileUrl?'<a class="tanem-master-source-link" href="'+esc(profileUrl)+'" target="_blank" rel="noopener noreferrer">'+esc(words.view)+' ↗</a>':'')+'</section>'
+      ];
+      target.innerHTML='<div class="tanem-master-head"><div class="tanem-master-photo">'+(avatar?'<img src="'+esc(avatar)+'" alt="'+esc(name)+'">':'')+'</div><h2>'+esc(name)+'</h2><p>'+esc(role)+'</p></div><div class="tanem-master-sections">'+sections.join('')+'</div>';
+      const existing=overlay.querySelector('.tanem-master-jump');
+      if(existing)existing.remove();
+      const nav=document.createElement('nav');nav.className='tanem-master-jump';nav.setAttribute('aria-label',lang==='en'?'Specialist sections':'Разделы профиля');
+      nav.innerHTML=tabs.map((key,i)=>'<button type="button" data-jump="'+key+'" class="'+(i===0?'is-active':'')+'">'+esc(words[key])+'</button>').join('');
+      overlay.appendChild(nav);
+      const updateNav=()=>{
+        const head=target.querySelector('.tanem-master-head');
+        const threshold=(head?.offsetHeight||210)-50;
+        nav.classList.toggle('is-visible',overlay.scrollTop>threshold);
+        const sections=[...target.querySelectorAll('.tanem-master-section')];
+        const active=[...sections].reverse().find(section=>section.getBoundingClientRect().top<overlay.getBoundingClientRect().top+overlay.clientHeight*.45)||sections[0];
+        nav.querySelectorAll('[data-jump]').forEach((button,i)=>button.classList.toggle('is-active',active===sections[i]));
+      };
+      overlay.__tanemMasterUpdate=updateNav;
+      nav.querySelectorAll('[data-jump]').forEach(button=>button.addEventListener('click',()=>{
+        const section=target.querySelector('#tanem-master-'+button.dataset.jump);
+        if(!section)return;
+        const position=overlay.scrollTop+section.getBoundingClientRect().top-overlay.getBoundingClientRect().top-24;
+        overlay.scrollTo({top:position,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+      }));
+      target.querySelector('[data-master-expand]')?.addEventListener('click',event=>{
+        const button=event.currentTarget,expanded=button.getAttribute('aria-expanded')==='true';
+        button.setAttribute('aria-expanded',String(!expanded));
+        target.querySelector('.tanem-master-extra').hidden=expanded;
+        button.innerHTML=esc(expanded?words.more:words.less)+' <span>'+(expanded?'↓':'↑')+'</span>';
+      });
+      target.querySelectorAll('[data-master-fallback]').forEach(button=>button.addEventListener('click',()=>{
+        if(desktop){document.getElementById('stdMasterPageClose')?.click();document.getElementById('stdHeaderBookBtn')?.click()}
+        else {overlay.querySelector('.tn22-back')?.click();document.querySelector('#tn13Top .tn22-cta')?.click()}
+      }));
+      const track=target.querySelector('.tanem-master-review-track');
+      if(track)startMasterReviews(track,overlay);
+      const book=overlay.querySelector(desktop?'#stdMasterPageBook':'.tn22-master-book');
+      if(book)book.textContent=lang==='en'?'Book online':'Записаться онлайн';
+      updateNav();
+    }
+    function startMasterReviews(track,container){
+      if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+      let offset=0,last=0,dragX=0,dragging=false;
+      const move=timestamp=>{
+        if(!track.isConnected||!container.classList.contains('open'))return;
+        const width=track.scrollWidth/2;
+        if(!dragging&&last&&width)offset-=Math.min((timestamp-last)*.024,1.8);
+        if(width){offset=((offset%width)-width)%width;track.style.transform='translate3d('+offset+'px,0,0)'}
+        last=timestamp;requestAnimationFrame(move);
+      };
+      track.addEventListener('pointerdown',event=>{dragging=true;dragX=event.clientX;track.setPointerCapture(event.pointerId)});
+      track.addEventListener('pointermove',event=>{if(!dragging)return;offset+=event.clientX-dragX;dragX=event.clientX});
+      ['pointerup','pointercancel','lostpointercapture'].forEach(type=>track.addEventListener(type,()=>{dragging=false}));
+      requestAnimationFrame(move);
+    }
+    document.addEventListener('click',event=>{
+      const trigger=event.target.closest('[data-desktop-master],[data-mid],[data-sheet-mid]');
+      if(trigger)selectedId=trigger.dataset.desktopMaster||trigger.dataset.mid||trigger.dataset.sheetMid||'';
+    },true);
+    new MutationObserver(()=>{
+      if(!overlay.classList.contains('open'))return;
+      const fallbackName=overlay.querySelector(desktop?'.std-master-profile h2':'.tn22-profile h1')?.textContent;
+      const master=(data.team||[]).find(item=>item.id===selectedId)||
+        (data.team||[]).find(item=>text(item.name,'ru')===fallbackName);
+      if(master)render(master);
+    }).observe(overlay,{attributes:true,attributeFilter:['class']});
+    overlay.addEventListener('scroll',()=>overlay.__tanemMasterUpdate?.(),{passive:true});
+    window.addEventListener('salon-template:languagechange',()=>{
+      if(!overlay.classList.contains('open'))return;
+      const master=(data.team||[]).find(item=>item.id===selectedId);
+      if(master)requestAnimationFrame(()=>render(master));
+    });
+  }
+
   // Client-specific Sonline selection is layered on top of the approved service
   // card markup. This deliberately leaves the factory's frozen markup untouched.
   function setupClientInteractions(){
@@ -363,13 +561,30 @@
           if(!service)return;
           row.dataset.clientServiceId=service.id;
           row.dataset.clientBookingUrl=service.bookingUrl||'';
-          if(!desktop){
-            row.querySelectorAll('.tn31-service-time[data-duration]').forEach(time=>{
-              if(/мин/i.test(time.dataset.duration)){
-                const correct=(time.dataset.duration.match(/\d+(?:[.,]\d+)?/)||[''])[0]+(currentLang()==='en'?' min':' мин');
-                if(time.textContent!==correct)time.textContent=correct;
+          const lang=currentLang();
+          const duration=text(service.duration,lang);
+          const parts=displayServiceParts(text(service.title,lang),!!duration);
+          const title=row.querySelector(desktop?'.dct-service-card-title':'.tn31-service-name');
+          const copyKey=lang+'|'+parts.name+'|'+parts.note;
+          if(title&&title.dataset.tanemCopyKey!==copyKey){
+            title.textContent=parts.name;
+            if(desktop){
+              if(parts.note){
+                const sub=document.createElement('small');sub.className='tanem-service-note';sub.textContent=parts.note;
+                title.appendChild(sub);
               }
-            });
+            }else{
+              let sub=row.querySelector('.tn31-service-detail');
+              if(parts.note&&!sub){sub=document.createElement('span');sub.className='tn31-service-detail';title.after(sub)}
+              if(sub){sub.textContent=parts.note;sub.hidden=!parts.note}
+            }
+            title.dataset.tanemCopyKey=copyKey;
+          }
+          row.querySelectorAll('.dct-service-duration[data-duration],.tn31-service-time[data-duration]').forEach(time=>{
+            const formatted=displayDuration(time.dataset.duration,lang);
+            if(time.textContent!==formatted)time.textContent=formatted;
+          });
+          if(!desktop){
             const details=row.querySelector('.tn31-service-demo-desc p');
             const more=row.querySelector('[data-service-details]');
             if(details&&more){
@@ -419,7 +634,11 @@
   }
 
   window.addEventListener('salon-template:languagechange',apply);
+  window.addEventListener('salon-template:languagechange',alignMobileMasterNames);
   apply();
+  setupDesktopTeamPaging();
+  alignMobileMasterNames();
+  setupMasterProfiles();
   setupClientInteractions();
   [80,260,700].forEach(delay=>window.setTimeout(apply,delay));
   window.setInterval(()=>applySchedule(currentLang()),60000);

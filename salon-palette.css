@@ -291,7 +291,7 @@ html[data-br-device="desktop"] #stdBookOverlay .tn50-book-icon{
   background:#F1ECE5;color:#252525;
 }
 html[data-br-device="desktop"] #stdBookOverlay .tn50-book-icon:is(.online,.message,.messenger,.whatsapp){
-  background:#E9F7F0;color:#128C7E;
+  background:#F1ECE5;color:#252525;
 }
 html[data-br-device="desktop"] #stdBookOverlay .tn50-book-icon.map{
   background:#EFEDE9;color:#66584D;
@@ -483,22 +483,191 @@ html[data-br-device="mobile"] #salon-mobile .tn22-viewer .tn22-viewer-count{
   }
 }
 
-/* The approved 2×2 master layout needs a third, balanced row for five
-   actual Sonline specialists. Scope this to populated five-card teams. */
-html[data-br-device="desktop"] #salonDesktopTeam .std-team-track:has(>.std-master:nth-child(5)){
+/* Four full-size portrait cards per desktop team page; count never changes sizing. */
+html[data-br-device="desktop"] #salonDesktopTeam .std-team-track.tanem-paged-team{
   grid-template-columns:repeat(2,minmax(0,1fr))!important;
-  grid-template-rows:repeat(3,minmax(0,1fr))!important;
-  gap:10px 18px!important;
+  grid-template-rows:repeat(2,minmax(0,1fr))!important;
+  gap:28px 30px!important;
+  align-content:center!important;
 }
-html[data-br-device="desktop"] #salonDesktopTeam .std-team-track:has(>.std-master:nth-child(5)) .std-master-avatar{
-  width:125px!important;height:125px!important;
+html[data-br-device="desktop"] #salonDesktopTeam .tanem-paged-team>.std-master[hidden]{display:none!important}
+html[data-br-device="desktop"] #salonDesktopTeam .tanem-paged-team .std-master-avatar{
+  width:min(216px,100%)!important;height:auto!important;aspect-ratio:1!important;
 }
-html[data-br-device="desktop"] #salonDesktopTeam .std-team-track:has(>.std-master:nth-child(5)) .std-master-name{
-  margin-top:9px!important;font-size:21px!important;line-height:1.05!important;
+html[data-br-device="desktop"] #salonDesktopTeam .tanem-paged-team .std-master.tanem-team-solo{
+  grid-column:1/-1!important;justify-self:center!important;width:min(100%,260px)!important;
 }
-html[data-br-device="desktop"] #salonDesktopTeam .std-team-track:has(>.std-master:nth-child(5)) .std-master-role{
-  margin-top:5px!important;font-size:10px!important;
+html[data-br-device="desktop"] #salonDesktopTeam .tanem-team-controls{
+  display:flex;align-items:center;justify-content:center;gap:17px;margin-top:24px;
 }
-html[data-br-device="desktop"] #salonDesktopTeam .std-team-track:has(>.std-master:nth-child(5)) .std-master:last-child:nth-child(odd){
-  grid-column:1/-1;justify-self:center;width:min(100%,220px)!important;
+html[data-br-device="desktop"] #salonDesktopTeam .tanem-team-controls button{
+  width:39px;height:39px;border:1px solid rgba(255,255,255,.25);border-radius:50%;
+  background:rgba(255,255,255,.055);color:#f7f3f0;font:500 20px/1 Manrope,Arial,sans-serif;
+  cursor:pointer;transition:background .2s,border-color .2s;
+}
+html[data-br-device="desktop"] #salonDesktopTeam .tanem-team-controls button:is(:hover,:focus-visible){
+  background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.55);
+}
+html[data-br-device="desktop"] #salonDesktopTeam .tanem-team-controls span{
+  color:#d5c9c1;font:500 12px/1 Manrope,Arial,sans-serif;min-width:33px;text-align:center;
+}
+
+/* Only the secondary line is demoted: source service names and booking IDs stay intact. */
+#salonDesktopServices .dct-service-card-title .tanem-service-note{
+  display:block;margin-top:9px;color:#b9b6b2;font:400 12px/1.5 Manrope,Arial,sans-serif;
+  letter-spacing:0;white-space:normal;
+}
+#salonDesktopServices .dct-service-card-description{
+  margin-right:clamp(24px,3.6vw,57px)!important;
+}
+#salon-mobile #tn13Services .tn31-service-detail:not([hidden]){
+  display:block;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;
+  line-height:1.4!important;margin-top:7px!important;
+}
+#salon-mobile #tn13Team .tn22-master-name{
+  display:block!important;white-space:nowrap!important;overflow:hidden!important;
+  text-overflow:ellipsis!important;line-height:1.1!important;min-height:24px!important;
+}
+
+/* The same quiet, editorial master profile on both viewports. */
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-head{
+  padding:42px 18px 48px;text-align:center;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-photo{
+  display:block;width:176px;height:176px;margin:0 auto;border-radius:50%;overflow:hidden;
+  background:linear-gradient(145deg,#e9e3dc,#d7cec6);border:1px solid rgba(44,39,34,.1);
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-photo img{width:100%;height:100%;display:block;object-fit:cover}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-head h2{
+  margin:19px 0 0;color:#28231f;font:500 58px/.97 'Cormorant Garamond',Georgia,serif;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-head p{
+  margin:9px 0 0;color:#7c736b;font:400 13px/1.5 Manrope,Arial,sans-serif;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-sections{
+  width:min(100%,850px);margin:auto;padding:0 0 130px;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-section{
+  padding:38px 0 52px;border-top:1px solid rgba(64,53,46,.16);scroll-margin-top:24px;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-kicker{
+  margin:0 0 14px;color:#897a6e;font:600 10px/1.3 Manrope,Arial,sans-serif;letter-spacing:.19em;text-transform:uppercase;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-section h3{
+  margin:0 0 21px;color:#28231f;font:500 43px/1 'Cormorant Garamond',Georgia,serif;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-bio{
+  max-width:680px;margin:0;color:#514940;font:400 15px/1.8 Manrope,Arial,sans-serif;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-service{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(140px,max-content);gap:35px;
+  align-items:center;width:100%;min-height:80px;padding:18px 0;
+  background:transparent;border:0;border-bottom:1px solid rgba(68,54,44,.13);
+  color:#29231e;text-align:left;text-decoration:none!important;cursor:pointer;
+  transition:background .16s ease;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-service:hover{
+  background:rgba(191,173,155,.10);
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-service-copy{min-width:0;display:block}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-service-copy strong{
+  display:block;font:500 24px/1.22 'Cormorant Garamond',Georgia,serif;color:#28231f;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-service-copy small{
+  display:block;margin-top:7px;font:400 11px/1.5 Manrope,Arial,sans-serif;color:#877c72;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-service-side{
+  display:flex;align-items:center;justify-content:flex-end;gap:20px;white-space:nowrap;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-service-side small{
+  color:#756c65;font:500 12px/1 Manrope,Arial,sans-serif;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-service-side strong{
+  color:#29231e;font:600 17px/1 'Cormorant Garamond',Georgia,serif;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-more{
+  display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:50px;
+  margin-top:20px;border:1px solid #c2b4a8;border-radius:11px;
+  background:rgba(255,255,255,.36);color:#3f342c;font:500 12px/1 Manrope,Arial,sans-serif;cursor:pointer;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-more span{font-size:17px}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-extra[hidden]{display:none!important}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-gallery{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-gallery img{
+  display:block;width:100%;aspect-ratio:1.12;object-fit:cover;border-radius:12px;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-empty{
+  margin:0;color:#81756c;font:400 13px/1.65 Manrope,Arial,sans-serif;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-review-source{
+  margin:-5px 0 20px;color:#857970;font:500 11px/1.5 Manrope,Arial,sans-serif;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-source-link{
+  display:inline-flex;margin-top:17px;color:#4a3d34;font:600 12px/1.4 Manrope,Arial,sans-serif;
+  text-underline-offset:5px;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-review-window{
+  overflow:hidden;touch-action:pan-y;border-radius:12px;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-review-track{
+  display:flex;width:max-content;gap:14px;touch-action:pan-y;cursor:grab;user-select:none;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-review-track:active{cursor:grabbing;touch-action:pan-x}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-review{
+  flex:0 0 320px;width:320px;padding:22px;background:#fffaf5;border:1px solid #ddd0c3;border-radius:15px;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-review div{display:flex;justify-content:space-between;gap:15px}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-review div span{color:#bd9262;letter-spacing:.1em}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-review div strong{font:600 12px/1.4 Manrope,Arial,sans-serif;color:#51443a}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-review p{font:400 13px/1.65 Manrope,Arial,sans-serif;color:#42382f}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-review>small{font:400 11px/1 Manrope,Arial,sans-serif;color:#8d7c6b}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-jump{
+  position:fixed;z-index:675;left:50%;bottom:91px;transform:translate(-50%,17px);
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  width:max-content;max-width:calc(100% - 24px);padding:6px;
+  border:1px solid rgba(75,63,54,.16);border-radius:18px;
+  background:rgba(250,247,242,.96);box-shadow:0 14px 38px rgba(56,43,35,.15);
+  opacity:0;pointer-events:none;transition:opacity .22s ease,transform .22s ease;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-jump.is-visible{
+  opacity:1;transform:translate(-50%,0);pointer-events:auto;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-jump button{
+  flex:0 0 auto;border:0;border-radius:12px;min-height:37px;padding:0 15px;
+  background:transparent;color:#74675b;font:600 11px/1 Manrope,Arial,sans-serif;cursor:pointer;
+}
+:is(#stdMasterOverlay,.tn22-master-page) .tanem-master-jump button.is-active{
+  background:#322923;color:#fff;
+}
+html[data-br-device="desktop"] #stdMasterOverlay .tanem-master-jump{
+  z-index:401;bottom:94px;
+}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-head{
+  padding:27px 3px 36px;
+}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-photo{width:142px;height:142px}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-head h2{font-size:48px}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-head p{font-size:12px}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-sections{padding-bottom:156px}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-section{padding:32px 0 41px}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-section h3{font-size:37px}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-bio{font-size:12.5px;line-height:1.75}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-service{
+  grid-template-columns:minmax(0,1fr) 96px;gap:15px;min-height:73px;padding:13px 0;
+}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-service-copy strong{font-size:18px}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-service-copy small{font-size:10px}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-service-side{
+  flex-direction:column;align-items:flex-end;gap:8px;
+}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-service-side small{font-size:10px}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-service-side strong{font-size:16px}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-jump{
+  bottom:76px;width:calc(100% - 24px);max-width:420px;gap:0;padding:5px;border-radius:15px;
+}
+html[data-br-device="mobile"] #salon-mobile .tn22-master-page .tanem-master-jump button{
+  flex:1 1 0;min-width:0;padding:0 4px;font-size:10px;
 }

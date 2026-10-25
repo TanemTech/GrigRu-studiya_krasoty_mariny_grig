@@ -34,7 +34,7 @@ html.br-booting #salon-mobile,html.br-booting #salon-desktop-v1{visibility:hidde
 @media(prefers-reduced-motion:reduce){#brBootIntro{transition:none!important}}
 </style>
 <link rel="stylesheet" href="desktop.css?v=salon-20261003-v2" media="(hover:hover) and (pointer:fine), (min-width:1024px)">
-<link rel="stylesheet" href="salon-palette.css?v=grig-20261025-v1" media="(hover:hover) and (pointer:fine), (min-width:1024px)">
+<link rel="stylesheet" href="salon-palette.css?v=grig-20261025-v2" media="(hover:hover) and (pointer:fine), (min-width:1024px)">
 <script src="site-data.js?v=grig-20261025-v1"></script>
 <script src="site-regions.js?v=salon-final-20260928-v2"></script>
 <script>
@@ -54,7 +54,7 @@ html.br-booting #salon-mobile,html.br-booting #salon-desktop-v1{visibility:hidde
   const palettePreload=document.createElement('link');
   palettePreload.rel='preload';
   palettePreload.as='style';
-  palettePreload.href='salon-palette.css?v=grig-20261025-v1';
+  palettePreload.href='salon-palette.css?v=grig-20261025-v2';
   document.head.appendChild(palettePreload);
   document.head.appendChild(preload);
  }
@@ -109,10 +109,10 @@ html.br-booting #salon-mobile,html.br-booting #salon-desktop-v1{visibility:hidde
    }else ready();
  }
  const script=document.createElement('script');
- script.src=desktop?'desktop.js?v=grig-20261025-v1':'mobile.js?v=grig-20261025-v1';
+ script.src=desktop?'desktop.js?v=grig-20261025-v2':'mobile.js?v=grig-20261025-v2';
  script.async=false;script.onload=()=>{
    const runtime=document.createElement('script');
-   runtime.src='site-runtime.js?v=grig-20261025-v1';
+   runtime.src='site-runtime.js?v=grig-20261025-v2';
    runtime.async=false;runtime.onload=loaded;
    runtime.onerror=()=>{if(closed)error.classList.add('is-visible')};
    document.body.appendChild(runtime);
